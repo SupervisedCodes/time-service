@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Time Service</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #020510;
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #canvas-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+    }
+
+    .content { position: relative; z-index: 1; }
+
+    .orbitron { font-family: 'Orbitron', monospace; }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+    }
+
+    .glass-bright {
+      background: rgba(99, 102, 241, 0.08);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 32px;
+    }
+
+    .glow-text {
+      text-shadow: 0 0 40px rgba(99, 102, 241, 0.8), 0 0 80px rgba(99, 102, 241, 0.4);
+    }
+
+    .glow-border {
+      box-shadow: 0 0 30px rgba(99, 102, 241, 0.3), inset 0 0 30px rgba(99, 102, 241, 0.05);
+    }
+
+    .time-display {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(2rem, 8vw, 5rem);
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      background: linear-gradient(135deg, #818cf8, #c084fc, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 20px rgba(129, 140, 248, 0.5));
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      background: rgba(99, 102, 241, 0.08);
+      border-color: rgba(99, 102, 241, 0.3);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(99, 102, 241, 0.15);
+    }
+
+    .pulse-ring {
+      animation: pulseRing 2s infinite;
+    }
+
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+      70% { box-shadow: 0 0 0 20px rgba(99, 102, 241, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    }
+
+    .gradient-bg {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
+    }
+
+    .tag {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 999px;
+      padding: 4px 14px;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #a5b4fc;
+    }
+
+    .separator {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.4), transparent);
+    }
+
+    #status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #4ade80;
+      display: inline-block;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .scroll-reveal { opacity: 0; transform: translateY(30px); transition: all 0.7s ease; }
+    .scroll-reveal.visible { opacity: 1; transform: translateY(0); }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #020510; }
+    ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.4); border-radius: 3px; }
+
+    .hero-badge {
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2));
+      border: 1px solid rgba(99,102,241,0.4);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      color: #c4b5fd;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas-bg"></canvas>
+
+<div class="content">
+
+  <!-- Nav -->
+  <nav class="flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 gradient-bg rounded-xl flex items-center justify-center text-white font-bold text-sm orbitron pulse-ring">T</div>
+      <span class="orbitron font-bold text-lg tracking-widest text-white/90">TIME<span class="text-indigo-400">SERVICE</span></span>
+    </div>
+    <div class="flex items-center gap-6 text-sm text-white/50">
+      <a href="/scalar/v1" class="hover:text-indigo-400 transition-colors">API Docs</a>
+      <a href="/time" class="hover:text-indigo-400 transition-colors">Endpoint</a>
+      <span class="flex items-center gap-2"><span id="status-dot"></span><span class="text-green-400">Live</span></span>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="max-w-7xl mx-auto px-8 pt-16 pb-20">
+    <div class="text-center mb-16">
+      <div class="hero-badge inline-block mb-6 animate__animated animate__fadeInDown">
+        ✦ Real-time UTC Service ✦
+      </div>
+      <h1 class="orbitron font-black text-5xl md:text-7xl mb-6 animate__animated animate__fadeInUp" style="line-height:1.1">
+        <span style="background:linear-gradient(135deg,#818cf8,#c084fc,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+          The Current<br/>Moment
+        </span>
+      </h1>
+      <p class="text-white/40 text-lg max-w-xl mx-auto animate__animated animate__fadeIn animate__delay-1s">
+        Precise UTC timestamps served over HTTP. No opinions. No nonsense. Just time.
+      </p>
+    </div>
+
+    <!-- Time Card -->
+    <div class="glass-bright glow-border max-w-3xl mx-auto p-10 text-center mb-8 animate__animated animate__zoomIn">
+      <p class="tag mb-6 inline-block">UTC NOW</p>
+      <div id="time-display" class="time-display mb-4">——:——:——</div>
+      <div id="date-display" class="orbitron text-indigo-300/70 text-xl tracking-widest mb-8">—— — ————</div>
+      <div class="separator mb-6"></div>
+      <div class="grid grid-cols-3 gap-4 text-center">
+        <div>
+          <div class="text-xs text-white/30 uppercase tracking-widest mb-1">Unix Epoch</div>
+          <div id="epoch-display" class="orbitron text-white/80 text-sm font-bold">—</div>
+        </div>
+        <div>
+          <div class="text-xs text-white/30 uppercase tracking-widest mb-1">ISO 8601</div>
+          <div id="iso-display" class="orbitron text-white/80 text-xs font-bold">—</div>
+        </div>
+        <div>
+          <div class="text-xs text-white/30 uppercase tracking-widest mb-1">Day of Year</div>
+          <div id="doy-display" class="orbitron text-white/80 text-sm font-bold">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Response Preview -->
+    <div class="glass max-w-3xl mx-auto p-6 scroll-reveal">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="flex gap-1.5">
+          <div class="w-3 h-3 rounded-full bg-red-500/70"></div>
+          <div class="w-3 h-3 rounded-full bg-yellow-500/70"></div>
+          <div class="w-3 h-3 rounded-full bg-green-500/70"></div>
+        </div>
+        <span class="text-white/30 text-xs font-mono">GET /time</span>
+        <span class="ml-auto text-green-400 text-xs font-mono">200 OK</span>
+      </div>
+      <pre id="api-preview" class="font-mono text-sm text-indigo-200/80 overflow-x-auto">
+<span class="text-white/30">{</span>
+  <span class="text-purple-400">"currentTime"</span><span class="text-white/30">:</span> <span class="text-green-400" id="json-time">"loading..."</span><span class="text-white/30">,</span>
+  <span class="text-purple-400">"timeZone"</span><span class="text-white/30">:</span>    <span class="text-green-400">"UTC"</span>
+<span class="text-white/30">}</span>
+      </pre>
+    </div>
+  </section>
+
+  <!-- Stats Row -->
+  <section class="max-w-7xl mx-auto px-8 pb-20">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="stat-card p-6 scroll-reveal">
+        <div class="text-3xl mb-2">⚡</div>
+        <div class="orbitron text-2xl font-bold text-white mb-1">&lt;1ms</div>
+        <div class="text-white/40 text-xs uppercase tracking-widest">Response Time</div>
+      </div>
+      <div class="stat-card p-6 scroll-reveal" style="transition-delay:0.1s">
+        <div class="text-3xl mb-2">🌐</div>
+        <div class="orbitron text-2xl font-bold text-white mb-1">UTC</div>
+        <div class="text-white/40 text-xs uppercase tracking-widest">Time Zone</div>
+      </div>
+      <div class="stat-card p-6 scroll-reveal" style="transition-delay:0.2s">
+        <div class="text-3xl mb-2">🔁</div>
+        <div class="orbitron text-2xl font-bold text-white mb-1" id="req-count">0</div>
+        <div class="text-white/40 text-xs uppercase tracking-widest">Requests This Session</div>
+      </div>
+      <div class="stat-card p-6 scroll-reveal" style="transition-delay:0.3s">
+        <div class="text-3xl mb-2">🟢</div>
+        <div class="orbitron text-2xl font-bold text-green-400 mb-1">Online</div>
+        <div class="text-white/40 text-xs uppercase tracking-widest">Service Status</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Feature Cards -->
+  <section class="max-w-7xl mx-auto px-8 pb-24">
+    <div class="separator mb-12"></div>
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="stat-card p-8 scroll-reveal">
+        <div class="w-12 h-12 gradient-bg rounded-2xl flex items-center justify-center text-2xl mb-5">🕐</div>
+        <h3 class="orbitron font-bold text-white mb-2">Precision Time</h3>
+        <p class="text-white/40 text-sm leading-relaxed">Millisecond-accurate UTC timestamps from the server clock. Always fresh, never cached.</p>
+      </div>
+      <div class="stat-card p-8 scroll-reveal" style="transition-delay:0.15s">
+        <div class="w-12 h-12 gradient-bg rounded-2xl flex items-center justify-center text-2xl mb-5">📡</div>
+        <h3 class="orbitron font-bold text-white mb-2">REST API</h3>
+        <p class="text-white/40 text-sm leading-relaxed">Simple HTTP GET to <code class="text-indigo-400 bg-indigo-400/10 px-1 rounded">/time</code>. JSON response. No auth required. No rate limits.</p>
+      </div>
+      <div class="stat-card p-8 scroll-reveal" style="transition-delay:0.3s">
+        <div class="w-12 h-12 gradient-bg rounded-2xl flex items-center justify-center text-2xl mb-5">📖</div>
+        <h3 class="orbitron font-bold text-white mb-2">OpenAPI Docs</h3>
+        <p class="text-white/40 text-sm leading-relaxed">Full <a href="/scalar/v1" class="text-indigo-400 hover:underline">Scalar API reference</a> included. Explore and test right in the browser.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/5 py-8 text-center text-white/20 text-xs orbitron tracking-widest">
+    TIME SERVICE &nbsp;·&nbsp; ASP.NET CORE 9 &nbsp;·&nbsp; UTC ONLY
+  </footer>
+
+</div>
+
+<script>
+  // ── Particle canvas ────────────────────────────────────────────
+  const canvas = document.getElementById('canvas-bg');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  class Particle {
+    constructor() { this.reset(); }
+    reset() {
+      this.x = Math.random() * W;
+      this.y = Math.random() * H;
+      this.vx = (Math.random() - 0.5) * 0.3;
+      this.vy = (Math.random() - 0.5) * 0.3;
+      this.r = Math.random() * 1.5 + 0.5;
+      this.alpha = Math.random() * 0.4 + 0.1;
+      this.color = Math.random() > 0.5 ? '99,102,241' : '56,189,248';
+    }
+    update() {
+      this.x += this.vx; this.y += this.vy;
+      if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${this.color},${this.alpha})`;
+      ctx.fill();
+    }
+  }
+
+  for (let i = 0; i < 120; i++) particles.push(new Particle());
+
+  // Draw connections
+  function drawLines() {
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(99,102,241,${0.08 * (1 - dist / 120)})`;
+          ctx.lineWidth = 0.5;
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, W, H);
+    // Radial gradient overlay
+    const grad = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H));
+    grad.addColorStop(0, 'rgba(10,8,30,0.0)');
+    grad.addColorStop(1, 'rgba(2,5,16,0.95)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    drawLines();
+    particles.forEach(p => { p.update(); p.draw(); });
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  // ── Time fetching ──────────────────────────────────────────────
+  let reqCount = 0;
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function dayOfYear(d) {
+    const start = new Date(d.getFullYear(), 0, 0);
+    return Math.floor((d - start) / 86400000);
+  }
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  async function fetchTime() {
+    try {
+      const res = await fetch('/time');
+      const data = await res.json();
+      const d = new Date(data.currentTime);
+
+      document.getElementById('time-display').textContent =
+        `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+
+      document.getElementById('date-display').textContent =
+        `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+
+      document.getElementById('epoch-display').textContent =
+        Math.floor(d.getTime() / 1000).toLocaleString();
+
+      document.getElementById('iso-display').textContent =
+        d.toISOString().replace('T', ' ').slice(0, 19) + 'Z';
+
+      document.getElementById('doy-display').textContent =
+        '#' + dayOfYear(d);
+
+      document.getElementById('json-time').textContent =
+        `"${d.toISOString()}"`;
+
+      reqCount++;
+      document.getElementById('req-count').textContent = reqCount;
+    } catch (e) {
+      document.getElementById('time-display').textContent = 'ERROR';
+    }
+  }
+
+  fetchTime();
+  setInterval(fetchTime, 1000);
+
+  // ── GSAP entrance ──────────────────────────────────────────────
+  gsap.from('nav', { y: -40, opacity: 0, duration: 0.8, ease: 'power3.out' });
+
+  // ── Scroll reveal ──────────────────────────────────────────────
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.scroll-reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
